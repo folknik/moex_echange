@@ -65,7 +65,7 @@ if __name__ == '__main__':
                 message_list = sorted(message_list, key=lambda x: x[3], reverse=True)
                 messages = ["{}: {} {}, {}%".format(m[0], m[1], m[2], m[3]) for m in message_list]
                 final_message = "\n".join(messages)
-                final_message = "Время " + datetime.now().strftime("%Y-%d-%d, %H:%M") + "\n" + final_message
+                final_message = "Время " + datetime.now().strftime("%Y-%m-%d, %H:%M") + "\n" + final_message
                 bot_sendtext(final_message)
                 sleep(60 * SLEEP_MINUTES)
         except KeyboardInterrupt:
