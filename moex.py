@@ -1,16 +1,16 @@
-import os
+import sys
 import requests
 from time import sleep
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 
 
-token = os.environ['token']
-chat_id = os.environ['çhat_id']
+token = sys.argv[1]
+chat_id = sys.argv[2]
 
 
 class WebOptions(object):
-    def init(self):
+    def __init__(self):
         self.options = Options()
         self.options.add_argument('--allow-running-insecure-content')
         self.options.add_argument('--ignore-certificate-errors')
@@ -30,8 +30,10 @@ def bot_sendtext(message):
     requests.get(text)
 
 
-def get_price(stock):
-    pass
+def get_price(driver, link):
+    driver.get(link)
+    price = driver.find_element_by_xpath("//*[@id='last_last']").text
+    return price
 
 
 if __name__ == '__main__':
@@ -39,10 +41,14 @@ if __name__ == '__main__':
         ['GAZP', 'https://ru.investing.com/equities/gazprom_rts', 'RUB'],
         ['AFLT', 'https://ru.investing.com/equities/aeroflot', 'RUB']
     ]
-    webdriver.Chrome(executable_path='your_path_to_chromdriver', options=WebOptions().extract)
-    try:
-        for stock in stocks:
-            get_price(stock)
-    except KeyboardInterrupt:
-        webdriver.close()
-
+    options = WebOptions().extract
+    driver = webdriver.Chrome(executable_path='/Users/afadeev/Documents/chromedriver', options=options)
+    while True:
+        try:
+            for stock in stocks:
+                price = get_price(driver, stock[1])
+                print(stock[0], price)
+                bot_sendtext(stock[0])
+            sleep(60)
+        except KeyboardInterrupt:
+            driver.close()
