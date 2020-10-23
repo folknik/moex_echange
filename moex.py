@@ -44,11 +44,16 @@ def get_price(driver, link):
 
 if __name__ == '__main__':
     stocks = [
-        ['GAZP', 'https://ru.investing.com/equities/gazprom_rts', 'RUB'],
-        ['TATN', 'https://ru.investing.com/equities/tatneft_rts', 'RUB'],
-        ['SBER', 'https://ru.investing.com/equities/sberbank_rts', 'RUB'],
-        ['GMKN', 'https://ru.investing.com/equities/gmk-noril-nickel_rts', 'RUB'],
-        ['AFLT', 'https://ru.investing.com/equities/aeroflot', 'RUB'],
+        ['GAZP', 'https://ru.investing.com/equities/gazprom_rts', 'RUB', 'Газпром'],
+        ['TATN', 'https://ru.investing.com/equities/tatneft_rts', 'RUB', 'Татнефть'],
+        ['SBER', 'https://ru.investing.com/equities/sberbank_rts', 'RUB', 'Сбербанк'],
+        ['GMKN', 'https://ru.investing.com/equities/gmk-noril-nickel_rts', 'RUB', 'Норникель'],
+        ['AFLT', 'https://ru.investing.com/equities/aeroflot', 'RUB', 'Аэрофлот'],
+        ['YNDX', 'https://ru.investing.com/equities/yandex?cid=102063', 'RUB', 'Яндекс'],
+        ['NLMK', 'https://ru.investing.com/equities/nlmk_rts', 'RUB', 'НЛМК'],
+        ['MVID', 'https://ru.investing.com/equities/mvideo_rts', 'RUB', 'М.Видео'],
+        ['LNTADR', 'https://ru.investing.com/equities/lenta-ltd?cid=962408', 'RUB', 'Lenta Ltd'],
+
     ]
     options = WebOptions().extract
     driver = webdriver.Chrome(executable_path='/Users/afadeev/Documents/chromedriver', options=options)
@@ -56,10 +61,12 @@ if __name__ == '__main__':
         try:
             if datetime.today().weekday() < 5 and START_SESSION <= datetime.now().time() <= END_SESSION:
                 stock_prices = [get_price(driver, stock[1]) for stock in stocks]
-                message_list = [(s[0], p[0], s[2], p[1]) for p, s in zip(stock_prices, stocks)]
+                message_list = [(s[3], p[0], s[2], p[1]) for p, s in zip(stock_prices, stocks)]
                 message_list = sorted(message_list, key=lambda x: x[3], reverse=True)
                 messages = ["{}: {} {}, {}%".format(m[0], m[1], m[2], m[3]) for m in message_list]
-                bot_sendtext("\n".join(messages))
+                final_message = "\n".join(messages)
+                final_message = "Время " + datetime.now().strftime("%Y-%d-%d, %H:%M") + "\n" + final_message
+                bot_sendtext(final_message)
                 sleep(60 * SLEEP_MINUTES)
         except KeyboardInterrupt:
             driver.close()
