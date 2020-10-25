@@ -85,7 +85,7 @@ if __name__ == '__main__':
     ]
     SLEEP_MINUTES = 10
     options = WebOptions().extract
-    with MOEX(cred['chromdriver_path'], options, stocks) as exchange:
+    with MOEX(cred['chromedriver_path'], options, stocks) as exchange:
         while True:
             exchange.run()
             sleep(60 * SLEEP_MINUTES)
