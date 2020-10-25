@@ -36,12 +36,14 @@ class MOEX(object):
         self.end = time(18, 45, 0)
         self.price_xpath = "//*[@id='last_last']"
         self.percent_xpath = "//*[@id='quotes_summary_current_data']/div[1]/div[2]/div[1]/span[4]"
+        self.volume_xpath = "//*[@id='quotes_summary_secondary_data']/div/ul/li[1]/span[2]/span"
 
     def get_price(self, link):
         self.driver.get(link)
         price = self.driver.find_element_by_xpath(self.price_xpath).text.replace(',', '.')
         percent = float(self.driver.find_element_by_xpath(self.percent_xpath).text.replace(',', '.').replace('%', ''))
-        return price, percent
+        volume = int(self.driver.find_element_by_xpath(self.volume_xpath).text.replace('.', ''))
+        return price, percent, volume
 
     def get_price_list(self, stocks):
         links = [stock[1] for stock in stocks]
@@ -50,9 +52,9 @@ class MOEX(object):
     def run(self):
         if datetime.today().weekday() < 5 and self.start <= datetime.now().time() <= self.end:
             prices = self.get_price_list(stocks)
-            message_list = [(s[3], p[0], s[2], p[1]) for p, s in zip(prices, stocks)]
+            message_list = [(s[3], p[0], s[2], p[1], p[2]) for p, s in zip(prices, stocks)]
             message_list = sorted(message_list, key=lambda x: x[3], reverse=True)  # sorted by percent
-            message = ["{}: {} {}, {}%".format(m[0], m[1], m[2], m[3]) for m in message_list]
+            message = ["{}: {} {}, {}%, {}".format(m[0], m[1], m[2], m[3], m[4]) for m in message_list]
             MOEX.send_message("\n".join(message))
 
     @staticmethod
