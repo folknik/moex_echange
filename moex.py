@@ -1,4 +1,4 @@
-import sys
+import json
 import requests
 from time import sleep
 from datetime import datetime, time
@@ -6,12 +6,8 @@ from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 
 
-token = sys.argv[1]
-chat_id = sys.argv[2]
-
-SLEEP_MINUTES = 10
-START_SESSION = time(10, 0, 0)
-END_SESSION = time(18, 45, 0)
+with open("./credentials.json", "r+") as file:
+    cred = json.loads(file.read())
 
 
 class WebOptions(object):
@@ -30,16 +26,49 @@ class WebOptions(object):
         return self.options
 
 
-def bot_sendtext(message):
-    text = 'https://api.telegram.org/bot' + token + '/sendMessage?chat_id=' + chat_id + '&text=' + message
-    requests.get(text)
+class MOEX(object):
+    def __init__(self, chromedriver_path, options, stocks):
+        self.options = options
+        self.chromedriver_path = chromedriver_path
+        self.stocks = stocks
+        self.driver = None
+        self.start = time(10, 0, 0)
+        self.end = time(18, 45, 0)
+        self.price_xpath = "//*[@id='last_last']"
+        self.percent_xpath = "//*[@id='quotes_summary_current_data']/div[1]/div[2]/div[1]/span[4]"
 
+    def get_price(self, link):
+        self.driver.get(link)
+        price = self.driver.find_element_by_xpath(self.price_xpath).text.replace(',', '.')
+        percent = float(self.driver.find_element_by_xpath(self.percent_xpath).text.replace(',', '.').replace('%', ''))
+        return price, percent
 
-def get_price(driver, link):
-    driver.get(link)
-    price = driver.find_element_by_xpath("//*[@id='last_last']").text.replace(',', '.')
-    percent = float(driver.find_element_by_xpath("//*[@id='quotes_summary_current_data']/div[1]/div[2]/div[1]/span[4]").text.replace(',', '.').replace('%', ''))
-    return price, percent
+    def get_price_list(self, stocks):
+        links = [stock[1] for stock in stocks]
+        return [self.get_price(link) for link in links]
+
+    def run(self):
+        if datetime.today().weekday() < 5 and self.start <= datetime.now().time() <= self.end:
+            prices = self.get_price_list(stocks)
+            message_list = [(s[3], p[0], s[2], p[1]) for p, s in zip(prices, stocks)]
+            message_list = sorted(message_list, key=lambda x: x[3], reverse=True)  # sorted by percent
+            message = ["{}: {} {}, {}%".format(m[0], m[1], m[2], m[3]) for m in message_list]
+            MOEX.send_message("\n".join(message))
+
+    @staticmethod
+    def send_message(message):
+        text = 'https://api.telegram.org/bot' + cred['token'] \
+               + '/sendMessage?chat_id=' + cred['chat_id'] + '&text=' + message
+        requests.get(text)
+
+    def __enter__(self):
+        print("MOEX echange started")
+        self.driver = webdriver.Chrome(executable_path=self.chromedriver_path, options=self.options)
+        return self
+
+    def __exit__(self):
+        print("MOEX echange finished")
+        self.driver.close()
 
 
 if __name__ == '__main__':
@@ -52,21 +81,11 @@ if __name__ == '__main__':
         ['YNDX', 'https://ru.investing.com/equities/yandex?cid=102063', 'RUB', 'Яндекс'],
         ['NLMK', 'https://ru.investing.com/equities/nlmk_rts', 'RUB', 'НЛМК'],
         ['MVID', 'https://ru.investing.com/equities/mvideo_rts', 'RUB', 'М.Видео'],
-        ['LNTADR', 'https://ru.investing.com/equities/lenta-ltd?cid=962408', 'RUB', 'Lenta Ltd'],
-
+        ['LNTADR', 'https://ru.investing.com/equities/lenta-ltd?cid=962408', 'RUB', 'Lenta Ltd']
     ]
+    SLEEP_MINUTES = 10
     options = WebOptions().extract
-    driver = webdriver.Chrome(executable_path='/Users/afadeev/Documents/chromedriver', options=options)
-    while True:
-        try:
-            if datetime.today().weekday() < 5 and START_SESSION <= datetime.now().time() <= END_SESSION:
-                stock_prices = [get_price(driver, stock[1]) for stock in stocks]
-                message_list = [(s[3], p[0], s[2], p[1]) for p, s in zip(stock_prices, stocks)]
-                message_list = sorted(message_list, key=lambda x: x[3], reverse=True)
-                messages = ["{}: {} {}, {}%".format(m[0], m[1], m[2], m[3]) for m in message_list]
-                final_message = "\n".join(messages)
-                final_message = "Время " + datetime.now().strftime("%Y-%m-%d, %H:%M") + "\n" + final_message
-                bot_sendtext(final_message)
-                sleep(60 * SLEEP_MINUTES)
-        except KeyboardInterrupt:
-            driver.close()
+    with MOEX('/Users/afadeev/Documents/chromedriver', options, stocks) as exchange:
+        while True:
+            exchange.run()
+            sleep(60 * SLEEP_MINUTES)
