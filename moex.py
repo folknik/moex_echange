@@ -1,5 +1,6 @@
 import json
 import requests
+import numpy as np
 from time import sleep
 from datetime import datetime, time
 from selenium import webdriver
@@ -36,26 +37,36 @@ class MOEX(object):
         self.end = time(18, 45, 0)
         self.price_xpath = "//*[@id='last_last']"
         self.percent_xpath = "//*[@id='quotes_summary_current_data']/div[1]/div[2]/div[1]/span[4]"
-        self.volume_xpath = "//*[@id='quotes_summary_secondary_data']/div/ul/li[1]/span[2]/span"
+        # self.volume_xpath = "//*[@id='quotes_summary_secondary_data']/div/ul/li[1]/span[2]/span"
 
     def get_price(self, link):
         self.driver.get(link)
         price = self.driver.find_element_by_xpath(self.price_xpath).text.replace(',', '.')
         percent = float(self.driver.find_element_by_xpath(self.percent_xpath).text.replace(',', '.').replace('%', ''))
-        volume = int(self.driver.find_element_by_xpath(self.volume_xpath).text.replace('.', ''))
-        return price, percent, volume
+        return price, percent
 
-    def get_price_list(self, stocks):
-        links = [stock[1] for stock in stocks]
-        return [self.get_price(link) for link in links]
+    def get_price_list(self):
+        links = [stock[1] for stock in self.stocks]
+        prices = [self.get_price(link) for link, stock in zip(links, self.stocks)]
+        return prices
 
     def run(self):
         if datetime.today().weekday() < 5 and self.start <= datetime.now().time() <= self.end:
-            prices = self.get_price_list(stocks)
-            message_list = [(s[3], p[0], s[2], p[1], p[2]) for p, s in zip(prices, stocks)]
-            message_list = sorted(message_list, key=lambda x: x[3], reverse=True)  # sorted by percent
-            message = ["{}: {} {}, {}%, {}".format(m[0], m[1], m[2], m[3], m[4]) for m in message_list]
+            prices = self.get_price_list()
+
+            # make message like Сбербанк: 213.10 RUB, -0.65%
+            message_list = [(s[3], p[0], s[2], p[1]) for p, s in zip(prices, stocks)]
+
+            # sorted by percent
+            message_list = np.array(sorted(message_list, key=lambda x: x[3], reverse=True))
+
+            oil = message_list[message_list[:, 0] == 'Нефть Brent']
+            no_oil = message_list[message_list[:, 0] != 'Нефть Brent']
+            message_list = np.vstack((oil, no_oil))
+
+            message = ["{}: {} {}, {}%".format(m[0], m[1], m[2], m[3]) for m in message_list]
             MOEX.send_message("\n".join(message))
+            print("Message was sent, {}".format(datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
 
     @staticmethod
     def send_message(message):
@@ -69,12 +80,12 @@ class MOEX(object):
         return self
 
     def __exit__(self):
-        print("MOEX echange finished")
         self.driver.close()
 
 
 if __name__ == '__main__':
     stocks = [
+        ['BF1', 'https://ru.investing.com/commodities/brent-oil', 'USD', 'Нефть Brent'],
         ['GAZP', 'https://ru.investing.com/equities/gazprom_rts', 'RUB', 'Газпром'],
         ['TATN', 'https://ru.investing.com/equities/tatneft_rts', 'RUB', 'Татнефть'],
         ['SBER', 'https://ru.investing.com/equities/sberbank_rts', 'RUB', 'Сбербанк'],
